@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Billing Desk | LabCore</title>
+<link rel="stylesheet" href="shared/labcore-nav.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --lc-sidebar: #202522; --lc-gold: #d5b36a; --lc-blue: #245b86;
+  --lc-bg: #f4f5f3; --lc-border: #dedfdd; --lc-text: #252525;
+  --lc-muted: #7a7f7b; --lc-green: #2d7a46; --lc-red: #b74b43;
+  --lc-warning: #b08a2e; --lc-radius: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', Arial, sans-serif; background: var(--lc-bg); color: var(--lc-text); }
+.main { margin-left: 245px; min-height: 100vh; padding: 24px 28px; }
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.topbar h1 { font-size: 22px; }
+.topbar p { font-size: 13px; color: var(--lc-muted); margin-top: 4px; }
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card { background: #fff; border: 1px solid var(--lc-border); border-radius: 10px; padding: 16px; }
+.stat-card .label { font-size: 11px; color: var(--lc-muted); text-transform: uppercase; }
+.stat-card .number { font-size: 24px; font-weight: 700; margin-top: 6px; }
+.stat-card .sub { font-size: 11px; color: var(--lc-muted); margin-top: 4px; }
+.card { background: #fff; border: 1px solid var(--lc-border); border-radius: 10px; overflow: hidden; }
+.card-head { padding: 14px 18px; border-bottom: 1px solid var(--lc-border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+.card-head h2 { font-size: 15px; }
+.toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.search { height: 36px; border: 1px solid var(--lc-border); border-radius: 6px; padding: 0 12px; font-size: 13px; min-width: 220px; }
+select.filter { height: 36px; border: 1px solid var(--lc-border); border-radius: 6px; padding: 0 10px; font-size: 12px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 11px 14px; background: #f7f7f5; font-size: 10px; text-transform: uppercase; color: #737873; border-bottom: 1px solid var(--lc-border); }
+td { padding: 12px 14px; border-bottom: 1px solid #eee; vertical-align: middle; }
+tr:hover { background: #fafbfa; }
+.badge { display: inline-block; padding: 3px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+.badge-unpaid { background: #fce4e0; color: #842029; }
+.badge-partial { background: #fff3cd; color: #856404; }
+.badge-paid { background: #e6f0e8; color: #2d7a46; }
+.badge-nobill { background: #eeeeeb; color: #5f645f; }
+.btn { padding: 7px 12px; border-radius: 6px; border: 1px solid var(--lc-border); background: #fff; cursor: pointer; font-size: 12px; font-weight: 600; }
+.btn:hover { background: var(--lc-bg); }
+.btn-primary { background: var(--lc-blue); border-color: var(--lc-blue); color: #fff; }
+.btn-success { background: var(--lc-green); border-color: var(--lc-green); color: #fff; }
+.btn-sm { padding: 4px 10px; font-size: 11px; }
+.money { font-weight: 700; font-variant-numeric: tabular-nums; }
+.empty { text-align: center; padding: 40px; color: var(--lc-muted); font-size: 13px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 16px; }
+.modal-overlay.show { display: flex; }
+.modal { background: #fff; border-radius: 10px; width: 640px; max-width: 100%; max-height: 90vh; overflow: auto; }
+.modal-header { padding: 16px 20px; border-bottom: 1px solid var(--lc-border); display: flex; justify-content: space-between; align-items: center; }
+.modal-body { padding: 20px; }
+.modal-footer { padding: 14px 20px; border-top: 1px solid var(--lc-border); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.line { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f0f0ee; font-size: 13px; }
+.total-row { font-weight: 700; font-size: 15px; margin-top: 10px; padding-top: 10px; border-top: 2px solid var(--lc-border); }
+.form-row { margin-bottom: 12px; }
+.form-row label { display: block; font-size: 11px; font-weight: 600; margin-bottom: 4px; color: #555; }
+.form-row input, .form-row select { width: 100%; height: 36px; border: 1px solid var(--lc-border); border-radius: 6px; padding: 0 10px; }
+.readonly-note { background: #fff8e1; border: 1px solid #f0d78c; color: #6b5a1e; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 12px; }
+@media (max-width: 900px) {
+  .main { margin-left: 0; padding-top: 70px; }
+  .stats { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 600px) {
+  .stats { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<aside class="sidebar"></aside>
+<button class="lc-mobile-toggle" aria-label="Menu">☰</button>
+<div class="lc-sidebar-overlay"></div>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <h1>Billing Desk</h1>
+      <p>Encounter charges · mark paid · export statements</p>
+    </div>
+    <div>
+      <button class="btn" onclick="exportBilling()">Export Excel</button>
+      <button class="btn btn-primary" onclick="loadBilling()">Refresh</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <div class="label">Billed today</div>
+      <div class="number money" id="statBilled">GHS 0.00</div>
+      <div class="sub">All charges dated today</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Collected today</div>
+      <div class="number money" id="statCollected" style="color:var(--lc-green)">GHS 0.00</div>
+      <div class="sub">Marked paid today</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Outstanding</div>
+      <div class="number money" id="statOutstanding" style="color:var(--lc-red)">GHS 0.00</div>
+      <div class="sub">Unpaid + partial</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Open bills</div>
+      <div class="number" id="statOpen">0</div>
+      <div class="sub">Encounters with balance</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2>Encounter bills</h2>
+      <div class="toolbar">
+        <input class="search" id="searchInput" placeholder="Search patient, ID, visit..." oninput="renderTable()">
+        <select class="filter" id="statusFilter" onchange="renderTable()">
+          <option value="all">All statuses</option>
+          <option value="unpaid">Unpaid</option>
+          <option value="partial">Partial</option>
+          <option value="paid">Paid</option>
+          <option value="nobill">No charges recorded</option>
+        </select>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Patient</th>
+            <th>Visit</th>
+            <th>Service / Date</th>
+            <th>Items</th>
+            <th style="text-align:right">Total</th>
+            <th style="text-align:right">Paid</th>
+            <th style="text-align:right">Balance</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="billBody">
+          <tr><td colspan="9" class="empty">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="billModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <strong id="modalTitle">Bill detail</strong>
+        <div style="font-size:12px;color:#7a7f7b" id="modalSub"></div>
+      </div>
+      <button class="btn btn-sm" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer" id="billModalFooter">
+      <button class="btn" onclick="closeModal()">Close</button>
+      <button class="btn btn-primary" id="btnRecordPay" onclick="recordPartialPayment()" style="display:none">Record payment</button>
+      <button class="btn btn-success" id="btnMarkPaid" onclick="markFullyPaid()" style="display:none">Mark fully paid</button>
+    </div>
+  </div>
+</div>
+
+<script src="shared/labcore-utils.js"></script>
+<script src="shared/labcore-receipts.js"></script>
+<script src="shared/labcore-ward.js"></script>
+<script src="shared/labcore-audit.js"></script>
+<script src="shared/labcore-auth.js"></script>
+<script src="shared/labcore-nav.js"></script>
+
+<script src="shared/labcore-search.js"></script>
+<script src="shared/labcore-notifications.js"></script>
+<script src="shared/labcore-print-preview.js"></script>
+<script src="shared/labcore-timeline.js"></script>
+<script>
+(function () {
+  const user = window.lcRequireAuth ? window.lcRequireAuth() : null;
+  if (!user) return;
+  if (!window.lcCan('canBill') && !window.lcCan('canConfig')) {
+    if (window.lcToast) window.lcToast('Your role cannot access the billing desk', 'warning');
+    window.location.href = 'dashboard.html';
+  }
+})();
+
+var bills = [];
+var currentBill = null;
+
+function money(n) {
+  n = Number(n) || 0;
+  return 'GHS ' + n.toFixed(2);
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function loadPatients() {
+  try {
+    return JSON.parse(localStorage.getItem('hms_patients_v3') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function savePatients(patients) {
+  localStorage.setItem('hms_patients_v3', JSON.stringify(patients));
+}
+
+function computeBillStatus(total, paid) {
+  paid = Number(paid) || 0;
+  total = Number(total) || 0;
+  if (total <= 0) return 'nobill';
+  if (paid <= 0) return 'unpaid';
+  if (paid + 0.001 >= total) return 'paid';
+  return 'partial';
+}
+
+function loadBilling() {
+  var patients = loadPatients();
+  bills = [];
+  patients.forEach(function (p) {
+    (p.encounters || []).forEach(function (e) {
+      var items = Array.isArray(e.billing) ? e.billing.slice() : [];
+
+      var hasCharges = items.length > 0;
+      var hasOrders = (e.orders || []).length > 0;
+      if (!hasCharges && !hasOrders) return;
+
+      var total = items.reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0);
+      var paid = Number(e.amountPaid) || 0;
+      var status = hasCharges
+        ? (e.paymentStatus || computeBillStatus(total, paid))
+        : 'nobill';
+
+      bills.push({
+        patientId: p.id,
+        patientName: p.fullName,
+        visitId: e.visitId,
+        service: e.service || '—',
+        date: e.date || (e.createdAt ? e.createdAt.slice(0, 10) : '—'),
+        items: items,
+        total: total,
+        paid: paid,
+        balance: hasCharges ? Math.max(0, total - paid) : 0,
+        status: status,
+        hasCharges: hasCharges,
+        encounter: e,
+        patient: p
+      });
+    });
+  });
+  bills.sort(function (a, b) {
+    return String(b.date).localeCompare(String(a.date));
+  });
+  updateStats();
+  renderTable();
+}
+
+function isToday(d) {
+  if (!d) return false;
+  var t = new Date();
+  var x = new Date(d);
+  if (isNaN(x.getTime())) {
+    return String(d).slice(0, 10) === t.toISOString().slice(0, 10);
+  }
+  return x.getFullYear() === t.getFullYear() && x.getMonth() === t.getMonth() && x.getDate() === t.getDate();
+}
+
+function updateStats() {
+  var billedToday = 0, collectedToday = 0, outstanding = 0, open = 0;
+  bills.forEach(function (b) {
+    if (isToday(b.date) || isToday(b.encounter && b.encounter.createdAt)) billedToday += b.total;
+    if (b.encounter && isToday(b.encounter.paidAt)) collectedToday += b.paid;
+    else if (b.status === 'paid' && isToday(b.date)) collectedToday += b.paid;
+    if (b.balance > 0.001) {
+      outstanding += b.balance;
+      open++;
+    }
+  });
+  document.getElementById('statBilled').textContent = money(billedToday);
+  document.getElementById('statCollected').textContent = money(collectedToday);
+  document.getElementById('statOutstanding').textContent = money(outstanding);
+  document.getElementById('statOpen').textContent = open;
+}
+
+function renderTable() {
+  var q = (document.getElementById('searchInput').value || '').toLowerCase().trim();
+  var st = document.getElementById('statusFilter').value;
+  var rows = bills.filter(function (b) {
+    if (st !== 'all' && b.status !== st) return false;
+    if (!q) return true;
+    return (b.patientName + ' ' + b.patientId + ' ' + b.visitId + ' ' + b.service).toLowerCase().indexOf(q) >= 0;
+  });
+  var body = document.getElementById('billBody');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="9" class="empty">No bills match your filters</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(function (b, i) {
+    var idx = bills.indexOf(b);
+    var badgeClass;
+    var badgeText;
+    if (b.status === 'paid') { badgeClass = 'badge-paid'; badgeText = 'paid'; }
+    else if (b.status === 'partial') { badgeClass = 'badge-partial'; badgeText = 'partial'; }
+    else if (b.status === 'nobill') { badgeClass = 'badge-nobill'; badgeText = 'no charges'; }
+    else { badgeClass = 'badge-unpaid'; badgeText = 'unpaid'; }
+
+    return '<tr>' +
+      '<td><strong>' + esc(b.patientName) + '</strong><div style="font-size:11px;color:#7a7f7b">' + esc(b.patientId) + '</div></td>' +
+      '<td>' + esc(b.visitId) + '</td>' +
+      '<td>' + esc(b.service) + '<div style="font-size:11px;color:#7a7f7b">' + esc(b.date) + '</div></td>' +
+      '<td>' + b.items.length + '</td>' +
+      '<td style="text-align:right" class="money">' + money(b.total) + '</td>' +
+      '<td style="text-align:right" class="money">' + money(b.paid) + '</td>' +
+      '<td style="text-align:right" class="money">' + money(b.balance) + '</td>' +
+      '<td><span class="badge ' + badgeClass + '">' + badgeText + '</span></td>' +
+      '<td><button class="btn btn-sm btn-primary" onclick="openBill(' + idx + ')">Open</button></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function openBill(idx) {
+  currentBill = bills[idx];
+  if (!currentBill) return;
+
+  document.getElementById('modalTitle').textContent = currentBill.patientName;
+  document.getElementById('modalSub').textContent =
+    currentBill.visitId + ' · ' + currentBill.service + ' · ' + currentBill.date;
+
+  var html = '';
+
+  if (!currentBill.hasCharges) {
+    html += '<div class="readonly-note">' +
+      '<strong>No charges recorded on this encounter.</strong><br>' +
+      'Charges are added automatically when the doctor places lab, pharmacy, or imaging orders. ' +
+      'If this encounter has orders but no charge lines, the encounter may have been created before ' +
+      'pricing was configured. This bill is read-only until charges exist.' +
+      '</div>';
+  }
+
+  if (currentBill.items.length) {
+    currentBill.items.forEach(function (it) {
+      html += '<div class="line"><span>' + esc(it.item) + '</span><span class="money">' + money(it.amount) + '</span></div>';
+    });
+  } else {
+    html += '<div class="line" style="color:#7a7f7b"><span><em>No charge lines</em></span><span class="money">GHS 0.00</span></div>';
+  }
+
+  html += '<div class="line total-row"><span>Total</span><span class="money">' + money(currentBill.total) + '</span></div>';
+  html += '<div class="line"><span>Already paid</span><span class="money">' + money(currentBill.paid) + '</span></div>';
+  html += '<div class="line"><span>Balance</span><span class="money">' + money(currentBill.balance) + '</span></div>';
+
+  if (currentBill.hasCharges && currentBill.balance > 0.001) {
+    html += '<div class="form-row" style="margin-top:16px"><label>Record payment amount (GHS)</label>' +
+      '<input type="number" id="payAmount" min="0.01" step="0.01" max="' + currentBill.balance.toFixed(2) + '" value="' + currentBill.balance.toFixed(2) + '">' +
+      '<div style="font-size:11px;color:#7a7f7b;margin-top:4px">Cannot exceed the outstanding balance of ' + money(currentBill.balance) + '.</div>' +
+      '</div>';
+    html += '<div class="form-row"><label>Payment method</label>' +
+      '<select id="payMethod"><option>Cash</option><option>Mobile Money</option><option>Card</option><option>Insurance</option><option>Bank transfer</option></select></div>';
+  }
+
+  document.getElementById('modalBody').innerHTML = html;
+
+  var canPay = currentBill.hasCharges && currentBill.balance > 0.001;
+  document.getElementById('btnMarkPaid').style.display = canPay ? 'inline-block' : 'none';
+  document.getElementById('btnRecordPay').style.display = canPay ? 'inline-block' : 'none';
+
+  document.getElementById('billModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('billModal').classList.remove('show');
+  currentBill = null;
+}
+
+function recordPartialPayment() {
+  if (!currentBill) return;
+  var amtEl = document.getElementById('payAmount');
+  var methEl = document.getElementById('payMethod');
+  if (!amtEl || !methEl) return;
+  applyPayment(amtEl.value, methEl.value, false);
+}
+
+function markFullyPaid() {
+  if (!currentBill) return;
+  if (!currentBill.hasCharges) {
+    if (window.lcToast) window.lcToast('No charges recorded — nothing to pay', 'warning');
+    return;
+  }
+  if (currentBill.balance <= 0.001) {
+    if (window.lcToast) window.lcToast('This bill is already fully paid', 'info');
+    return;
+  }
+  var methEl = document.getElementById('payMethod');
+  var method = (methEl && methEl.value) || 'Cash';
+  applyPayment(null, method, true);
+}
+
+function applyPayment(amount, method, full) {
+  if (!currentBill) return;
+
+  if (!currentBill.hasCharges) {
+    if (window.lcToast) window.lcToast('No charges recorded — cannot record a payment', 'error');
+    return;
+  }
+
+  var patients = loadPatients();
+  var p = patients.find(function (x) { return x.id === currentBill.patientId; });
+  if (!p) { if (window.lcToast) window.lcToast('Patient not found', 'error'); return; }
+  var e = (p.encounters || []).find(function (x) { return x.visitId === currentBill.visitId; });
+  if (!e) { if (window.lcToast) window.lcToast('Encounter not found', 'error'); return; }
+
+  if (!Array.isArray(e.billing) || !e.billing.length) {
+    if (window.lcToast) window.lcToast('No charge lines on this encounter', 'error');
+    return;
+  }
+
+  var currentPaid = Number(e.amountPaid) || 0;
+  var total = e.billing.reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0);
+  var balance = Math.max(0, total - currentPaid);
+
+  var pay;
+  if (full) {
+    pay = balance;
+  } else {
+    if (amount === '' || amount === null || amount === undefined) {
+      if (window.lcToast) window.lcToast('Enter a payment amount', 'warning');
+      return;
+    }
+    pay = Number(amount);
+    if (isNaN(pay) || pay <= 0) {
+      if (window.lcToast) window.lcToast('Enter an amount greater than 0', 'warning');
+      return;
+    }
+    if (pay > balance + 0.001) {
+      if (window.lcToast) window.lcToast('Amount exceeds outstanding balance of ' + money(balance), 'warning');
+      return;
+    }
+  }
+
+  if (pay <= 0) {
+    if (window.lcToast) window.lcToast('Nothing to pay — balance is ' + money(balance), 'info');
+    return;
+  }
+
+  var beforePaid = currentPaid;
+  var beforeStatus = e.paymentStatus || computeBillStatus(total, currentPaid);
+
+  e.amountPaid = currentPaid + pay;
+  e.paymentStatus = computeBillStatus(total, e.amountPaid);
+  e.paymentMethod = method || 'Cash';
+  e.paidAt = new Date().toISOString();
+  e.paidBy = (window.lcGetUser && window.lcGetUser() || {}).name || 'Billing';
+
+  e.payments = Array.isArray(e.payments) ? e.payments : [];
+  e.payments.push({
+    amount: pay,
+    method: e.paymentMethod,
+    at: e.paidAt,
+    by: e.paidBy,
+    balanceAfter: Math.max(0, total - e.amountPaid)
+  });
+
+  savePatients(patients);
+
+  if (window.auditLog) {
+    var action = (e.paymentStatus === 'paid') ? 'bill.paid' : 'bill.partial_payment';
+    auditLog(action, {
+      entity: 'encounter',
+      entityId: e.visitId,
+      patientId: p.id,
+      visitId: e.visitId,
+      before: { paid: beforePaid, status: beforeStatus },
+      after: { paid: e.amountPaid, status: e.paymentStatus, balance: Math.max(0, total - e.amountPaid) },
+      note: 'Payment: ' + money(pay) + ' · ' + e.paymentMethod
+    });
+  }
+
+  // Build and save a receipt record
+  var receiptRecord = null;
+  if (window.lcSaveReceipt) {
+    try {
+      receiptRecord = window.lcSaveReceipt({
+        patientId: p.id,
+        patientName: p.fullName,
+        patientMobile: p.mobile || '',
+        patientSex: p.sex || '',
+        patientDob: p.dob || '',
+        visitId: e.visitId,
+        service: e.service || '',
+        encounterDate: e.date || '',
+        items: e.billing || [],
+        totalCharged: total,
+        previousPaid: beforePaid,
+        amountPaid: pay,
+        balanceRemaining: Math.max(0, total - e.amountPaid),
+        paymentMethod: e.paymentMethod,
+        paymentNote: ''
+      });
+    } catch (err) {
+      console.warn('Could not save receipt:', err);
+    }
+  }
+
+  if (window.lcToast) window.lcToast('Payment recorded: ' + money(pay), 'success');
+  closeModal();
+  loadBilling();
+
+  // Ask about printing — default Yes
+  if (receiptRecord && window.lcPrintReceipt) {
+    setTimeout(function () {
+      var doPrint = confirm(
+        'Print receipt?\n\n' +
+        receiptRecord.receiptNumber + '\n' +
+        'Patient: ' + p.fullName + '\n' +
+        'Paid: ' + money(pay) + '\n' +
+        'Balance: ' + money(receiptRecord.balanceRemaining) + '\n\n' +
+        'OK = Print (A4)  ·  Cancel = Skip'
+      );
+      if (doPrint) {
+        window.lcPrintReceipt(receiptRecord, 'a4');
+      }
+    }, 200);
+  }
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+// Live refresh when the audit log gets a new payment entry from elsewhere
+window.addEventListener('lc-audit-appended', function (ev) {
+  var d = ev && ev.detail;
+  if (!d) return;
+  if (d.action === 'bill.paid' || d.action === 'bill.partial_payment') {
+    loadBilling();
+  }
+});
+
+function exportBilling() {
+  if (typeof XLSX === 'undefined') {
+    var lines = ['Patient,Patient ID,Visit,Service,Date,Total,Paid,Balance,Status'];
+    bills.forEach(function (b) {
+      lines.push([b.patientName, b.patientId, b.visitId, b.service, b.date, b.total, b.paid, b.balance, b.status].map(function (x) {
+        return '"' + String(x).replace(/"/g, '""') + '"';
+      }).join(','));
+    });
+    var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'LabCore_Billing_' + new Date().toISOString().slice(0, 10) + '.csv';
+    a.click();
+    if (window.lcToast) window.lcToast('Exported CSV', 'success');
+    return;
+  }
+  var rows = [['Patient','Patient ID','Visit','Service','Date','Total','Paid','Balance','Status']];
+  bills.forEach(function (b) {
+    rows.push([b.patientName, b.patientId, b.visitId, b.service, b.date, b.total, b.paid, b.balance, b.status]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Billing');
+  XLSX.writeFile(wb, 'LabCore_Billing_' + new Date().toISOString().slice(0, 10) + '.xlsx');
+  if (window.lcToast) window.lcToast('Exported Excel', 'success');
+}
+
+loadBilling();
+setInterval(loadBilling, 30000);
+</script>
+</body>
+</html>

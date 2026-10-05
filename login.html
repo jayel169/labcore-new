@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login | LabCore</title>
+<link rel="stylesheet" href="shared/labcore-nav.css">
+<style>
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a2a22 0%, #245b86 100%);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+}
+.login-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+  width: 560px;
+  max-width: 100%;
+  padding: 36px 32px 28px;
+}
+.brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.brand-mark {
+  width: 44px; height: 44px; background: #d5b36a; color: #202522;
+  border-radius: 8px; display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 18px;
+}
+.brand h1 { font-size: 22px; margin: 0; color: #202522; }
+.brand p { font-size: 12px; color: #7a7f7b; margin: 2px 0 0; }
+.subtitle { font-size: 13px; color: #5a6560; margin: 18px 0 16px; }
+
+label { display: block; font-size: 11px; font-weight: 600; color: #555a56; margin-bottom: 4px; }
+input[type=text], input[type=password] {
+  width: 100%; padding: 10px 12px; border: 1px solid #d1d3d0;
+  border-radius: 6px; font-size: 14px; margin-bottom: 14px;
+  box-sizing: border-box;
+}
+input:focus { outline: none; border-color: #245b86; box-shadow: 0 0 0 3px rgba(36,91,134,0.15); }
+
+.role-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.role-card {
+  border: 2px solid #dedfdd; border-radius: 8px;
+  padding: 12px 8px; text-align: center;
+  cursor: pointer; transition: 0.2s; background: #fafbf9;
+  position: relative;
+}
+.role-card:hover { border-color: #245b86; background: #eef7fd; }
+.role-card.selected {
+  border-color: #245b86; background: #e8f4fc;
+  box-shadow: 0 0 0 2px rgba(36,91,134,0.2);
+}
+.role-card.locked {
+  opacity: 0.5; cursor: not-allowed;
+  background: #f5f0f0; border-color: #d4a0a0;
+}
+.role-card .icon { font-size: 22px; margin-bottom: 4px; }
+.role-card .name { font-size: 12px; font-weight: 700; color: #252525; }
+.role-card .desc { font-size: 10px; color: #7a7f7b; margin-top: 2px; }
+.role-card .lock-badge {
+  position: absolute; top: 6px; right: 6px;
+  font-size: 14px;
+}
+
+.pin-row {
+  display: flex; gap: 8px; justify-content: center;
+  margin-bottom: 16px;
+}
+.pin-digit {
+  width: 52px; height: 62px; text-align: center;
+  font-size: 24px; font-weight: 700;
+  border-radius: 10px; border: 2px solid #d1d3d0;
+  background: #fff; color: #252525;
+  transition: border-color 0.2s;
+}
+.pin-digit:focus {
+  outline: none; border-color: #245b86;
+  box-shadow: 0 0 0 4px rgba(36,91,134,0.15);
+}
+.pin-digit.filled { border-color: #245b86; }
+
+.btn {
+  width: 100%; padding: 12px; border: none; border-radius: 6px;
+  background: #252a27; color: #fff; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: 0.2s;
+}
+.btn:hover { background: #3b413d; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.hint {
+  margin-top: 16px; font-size: 11px; color: #8a908b;
+  text-align: center; line-height: 1.6;
+}
+.error {
+  background: #fce4e0; color: #842029; padding: 8px 12px;
+  border-radius: 6px; font-size: 12px; margin-bottom: 12px; display: none;
+}
+.error.show { display: block; }
+.lock-notice {
+  background: #fff3df; color: #9a5b00; padding: 10px 14px;
+  border-radius: 6px; font-size: 12px; margin-bottom: 12px;
+  text-align: center; display: none;
+}
+.lock-notice.show { display: block; }
+
+.demo-pins {
+  margin-top: 18px; padding: 12px 14px;
+  background: #f8fafc; border: 1px dashed #cfe6f5;
+  border-radius: 6px; font-size: 10px;
+  color: #607080; line-height: 1.7;
+  text-align: center;
+}
+.demo-pins strong { color: #1d5a80; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <div class="brand">
+    <div class="brand-mark">LC</div>
+    <div>
+      <h1>LabCore</h1>
+      <p>Laboratory Information System</p>
+    </div>
+  </div>
+  <div class="subtitle">Select your role and enter your PIN to continue</div>
+
+  <div class="lock-notice" id="lockNotice"></div>
+  <div class="error" id="errorBox"></div>
+
+  <label>Display name</label>
+  <input type="text" id="userName" placeholder="e.g. Dr. Mensah / Ama Boateng">
+
+  <label>Role</label>
+  <div class="role-grid" id="roleGrid"></div>
+
+  <label>PIN</label>
+  <div class="pin-row" id="pinRow">
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="0" autocomplete="off">
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="1" autocomplete="off">
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="2" autocomplete="off">
+    <input class="pin-digit" type="password" inputmode="numeric" maxlength="1" data-index="3" autocomplete="off">
+  </div>
+
+  <button class="btn" id="loginBtn" onclick="doLogin()" disabled>Continue</button>
+
+  <div class="demo-pins">
+    <strong>Demo PINs:</strong><br>
+    Scientist 1111 · Doctor 2222 · Receptionist 3333 · Billing 4444<br>
+    Nurse 5555 · Sonographer 6666 · Radiographer 7777 · Admin 8888
+  </div>
+</div>
+
+<script src="shared/labcore-auth.js"></script>
+<script>
+let selectedRole = null;
+let lockTimer = null;
+
+// If already logged in, go to dashboard
+(function () {
+  const u = window.lcGetUser && window.lcGetUser();
+  if (u) window.location.href = 'dashboard.html';
+})();
+
+/* =========================================================
+   BUILD ROLE GRID
+========================================================= */
+function buildRoleGrid() {
+  const grid = document.getElementById('roleGrid');
+  const roles = window.lcRoles;
+  const meta = {
+    scientist: { icon: '🧪', desc: 'Results, validation, config' },
+    doctor: { icon: '👨‍⚕️', desc: 'Consultation & reports' },
+    nurse: { icon: '🩺', desc: 'Patients & support' },
+    receptionist: { icon: '📋', desc: 'Patients & samples' },
+    billing: { icon: '💰', desc: 'Charges & payments' },
+    sonographer: { icon: '📡', desc: 'Ultrasound worklist' },
+    radiographer: { icon: '📷', desc: 'X-Ray / CT / MRI' },
+    admin: { icon: '⚙️', desc: 'Full access' }
+  };
+  grid.innerHTML = Object.keys(roles).map(roleId => {
+    const r = roles[roleId];
+    const m = meta[roleId] || { icon: '👤', desc: '' };
+    return '<div class="role-card" data-role="' + roleId + '" onclick="selectRole(\'' + roleId + '\', this)">' +
+      '<div class="icon">' + m.icon + '</div>' +
+      '<div class="name">' + r.label + '</div>' +
+      '<div class="desc">' + m.desc + '</div>' +
+      '</div>';
+  }).join('');
+  refreshLockStates();
+}
+
+function refreshLockStates() {
+  document.querySelectorAll('.role-card').forEach(card => {
+    const roleId = card.dataset.role;
+    const locked = window.lcIsRoleLocked(roleId);
+    card.classList.toggle('locked', locked);
+    if (locked) {
+      const remaining = window.lcRoleLockRemainingMs(roleId);
+      const mins = Math.ceil(remaining / 60000);
+      card.innerHTML = card.innerHTML.replace(/<div class="lock-badge">.*?<\/div>/, '') +
+        '<div class="lock-badge">🔒</div>';
+      card.title = 'Locked · retry in ' + mins + ' min';
+    } else {
+      const badge = card.querySelector('.lock-badge');
+      if (badge) badge.remove();
+      card.title = '';
+    }
+  });
+}
+
+setInterval(refreshLockStates, 30000);
+
+/* =========================================================
+   SELECT ROLE
+========================================================= */
+function selectRole(roleId, el) {
+  if (window.lcIsRoleLocked(roleId)) {
+    showError('This role is temporarily locked. Try again in a few minutes.');
+    return;
+  }
+  document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedRole = roleId;
+
+  const defaults = {
+    scientist: 'Lab Scientist', doctor: 'Dr. Mensah', nurse: 'Nurse Ama',
+    receptionist: 'Reception Desk', billing: 'Accounts Desk',
+    sonographer: 'Sonographer', radiographer: 'Radiographer',
+    admin: 'System Admin'
+  };
+  const nameInput = document.getElementById('userName');
+  if (!nameInput.value.trim()) nameInput.value = defaults[roleId] || '';
+
+  updateLoginButton();
+  setTimeout(() => document.querySelector('.pin-digit').focus(), 100);
+}
+
+/* =========================================================
+   PIN INPUT HANDLING
+========================================================= */
+document.querySelectorAll('.pin-digit').forEach(function (input, idx, arr) {
+  input.addEventListener('input', function () {
+    const v = this.value.replace(/\D/g, '');
+    this.value = v.slice(-1);
+    this.classList.toggle('filled', this.value.length === 1);
+    if (this.value && idx < arr.length - 1) arr[idx + 1].focus();
+    updateLoginButton();
+  });
+  input.addEventListener('keydown', function (e) {
+    if (e.key === 'Backspace' && !this.value && idx > 0) arr[idx - 1].focus();
+    if (e.key === 'Enter') {
+      const btn = document.getElementById('loginBtn');
+      if (!btn.disabled) btn.click();
+    }
+  });
+  input.addEventListener('paste', function (e) {
+    e.preventDefault();
+    const paste = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '');
+    if (!paste) return;
+    for (let i = 0; i < arr.length; i++) {
+      arr[i].value = paste[i] || '';
+      arr[i].classList.toggle('filled', !!arr[i].value);
+    }
+    updateLoginButton();
+  });
+});
+
+document.getElementById('userName').addEventListener('keydown', function (e) {
+  if (e.key === 'Enter') {
+    const btn = document.getElementById('loginBtn');
+    if (!btn.disabled) btn.click();
+  }
+});
+
+function getPin() {
+  return Array.from(document.querySelectorAll('.pin-digit')).map(d => d.value).join('');
+}
+
+function updateLoginButton() {
+  const btn = document.getElementById('loginBtn');
+  const allFilled = Array.from(document.querySelectorAll('.pin-digit')).every(d => d.value.length === 1);
+  btn.disabled = !(selectedRole && allFilled);
+}
+
+function clearPin() {
+  document.querySelectorAll('.pin-digit').forEach(d => { d.value = ''; d.classList.remove('filled'); });
+  updateLoginButton();
+  setTimeout(() => document.querySelector('.pin-digit').focus(), 50);
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorBox');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 5000);
+}
+
+function showLockNotice(remainingMs) {
+  const el = document.getElementById('lockNotice');
+  function tick() {
+    const remaining = Math.max(0, remainingMs - (Date.now() - startTime));
+    const mins = Math.ceil(remaining / 60000);
+    const secs = Math.ceil((remaining % 60000) / 1000);
+    if (remaining <= 0) {
+      el.classList.remove('show');
+      clearInterval(lockTimer);
+      refreshLockStates();
+      return;
+    }
+    el.textContent = '🔒 This role is locked. Retry in ' + mins + 'm ' + secs + 's';
+    el.classList.add('show');
+  }
+  const startTime = Date.now();
+  clearInterval(lockTimer);
+  tick();
+  lockTimer = setInterval(tick, 1000);
+}
+
+/* =========================================================
+   DO LOGIN
+========================================================= */
+function doLogin() {
+  const name = document.getElementById('userName').value.trim();
+  if (!selectedRole) { showError('Please select a role.'); return; }
+  if (!name) { showError('Please enter a display name.'); return; }
+
+  const pin = getPin();
+  if (pin.length !== 4) { showError('Please enter a 4-digit PIN.'); return; }
+
+  const result = window.lcAttemptLogin(selectedRole, name, pin);
+
+  if (!result.ok) {
+    if (result.reason === 'locked') {
+      showLockNotice(result.remainingMs || 5 * 60 * 1000);
+      refreshLockStates();
+      return;
+    }
+    if (result.reason === 'wrong_pin') {
+      const left = result.attemptsLeft != null ? ' · ' + result.attemptsLeft + ' attempt(s) left' : '';
+      showError('Incorrect PIN' + left);
+      clearPin();
+      return;
+    }
+    showError('Login failed: ' + (result.reason || 'unknown'));
+    return;
+  }
+
+  window.location.href = 'dashboard.html';
+}
+
+/* =========================================================
+   INIT
+========================================================= */
+buildRoleGrid();
+</script>
+</body>
+</html>
